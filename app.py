@@ -2,47 +2,82 @@ import streamlit as st
 import hashlib
 import time
 
-st.set_page_config(page_title="Blockchain Simulator", layout="wide")
+# Page Configuration
+st.set_page_config(page_title="Blockchain Pro Simulator", layout="wide")
 
-st.title("⛓️ မြန်မာ Blockchain Simulator")
-st.write("Blockchain ဘယ်လိုအလုပ်လုပ်သလဲဆိုတာ ဒီမှာ ကိုယ်တိုင်စမ်းကြည့်ပါ!")
+# Custom CSS for look and feel
+st.markdown("""
+    <style>
+    .block-card { padding: 20px; border-radius: 10px; border: 2px solid #4CAF50; margin-bottom: 10px; background-color: #f0fff0; }
+    .hacked-card { padding: 20px; border-radius: 10px; border: 2px solid #FF4B4B; margin-bottom: 10px; background-color: #fff0f0; }
+    </style>
+    """, unsafe_allow_html=True)
 
-if 'blockchain' not in st.session_state:
-    st.session_state.blockchain = [{
-        'index': 0,
-        'data': 'Genesis Block',
-        'prev_hash': '0',
-        'hash': '0000000abc123...',
-        'timestamp': time.ctime()
-    }]
+# Sidebar
+with st.sidebar:
+    st.title("🚀 Crypto Mate Tech")
+    st.info("ဤ Tool သည် Blockchain ၏ အခြေခံသဘောတရားကို လေ့လာရန်ဖြစ်ပါသည်။")
+    if st.button("Reset Blockchain"):
+        st.session_state.blockchain = []
+        st.rerun()
 
-# စာသားရိုက်ရန်
-user_data = st.text_input("Block ထဲ ထည့်ချင်တဲ့ စာသားရိုက်ပါ (ဥပမာ- ငွေလွှဲစာရင်း):", "A sent 1 BTC to B")
+st.title("⛓️ Blockchain Educational Simulator (Myanmar)")
 
-if st.button("Block အသစ်ကို Mine လုပ်မည်"):
-    prev_block = st.session_state.blockchain[-1]
-    new_index = prev_block['index'] + 1
-    
-    # Simple Hash Calculation
-    new_timestamp = time.ctime()
-    raw_data = str(new_index) + user_data + prev_block['hash'] + new_timestamp
-    new_hash = hashlib.sha256(raw_data.encode()).hexdigest()
-    
-    new_block = {
-        'index': new_index,
-        'data': user_data,
-        'prev_hash': prev_block['hash'],
-        'hash': new_hash,
-        'timestamp': new_timestamp
+# Initialize Blockchain
+if 'blockchain' not in st.session_state or not st.session_state.blockchain:
+    genesis_block = {
+        'index': 0, 'timestamp': time.ctime(), 'data': 'Genesis Block',
+        'prev_hash': '0' * 64, 'nonce': 0
     }
-    st.session_state.blockchain.append(new_block)
-    st.success(f"Block #{new_index} ကို အောင်မြင်စွာ ထည့်သွင်းပြီးပါပြီ!")
+    # Simple Hash for Genesis
+    genesis_block['hash'] = hashlib.sha256(str(genesis_block).encode()).hexdigest()
+    st.session_state.blockchain = [genesis_block]
 
-# ပြသရန်
-for block in reversed(st.session_state.blockchain):
-    with st.expander(f"📦 Block #{block['index']} - [Hash: {block['hash'][:15]}...]"):
-        st.write(f"**အချိန်:** {block['timestamp']}")
-        st.write(f"**ပါဝင်တဲ့အချက်အလက်:** {block['data']}")
-        st.info(f"**ရှေ့က Block ရဲ့ Hash:** {block['prev_hash']}")
-        st.warning(f"**ဒီ Block ရဲ့ Hash:** {block['hash']}")
+# Input Section
+st.subheader("➕ Block အသစ်ထည့်ရန်")
+col1, col2 = st.columns([3, 1])
+with col1:
+    user_data = st.text_input("အရောင်းအဝယ်မှတ်တမ်း ရိုက်ထည့်ပါ:", placeholder="ဥပမာ - ကျော်ကျော်က အောင်အောင်ကို 0.5 BTC ပေးသည်")
+with col2:
+    if st.button("Mine New Block", use_container_width=True):
+        prev_block = st.session_state.blockchain[-1]
+        new_block = {
+            'index': len(st.session_state.blockchain),
+            'timestamp': time.ctime(),
+            'data': user_data,
+            'prev_hash': prev_block['hash']
+        }
+        new_block['hash'] = hashlib.sha256(str(new_block).encode()).hexdigest()
+        st.session_state.blockchain.append(new_block)
 
+# Display Section
+st.subheader("📦 လက်ရှိ Blockchain အခြေအနေ")
+
+def check_integrity():
+    for i in range(1, len(st.session_state.blockchain)):
+        if st.session_state.blockchain[i]['prev_hash'] != st.session_state.blockchain[i-1]['hash']:
+            return i # Return the index where it failed
+    return -1
+
+fail_index = check_integrity()
+
+for i, block in enumerate(st.session_state.blockchain):
+    is_valid = (fail_index == -1 or i < fail_index)
+    
+    card_class = "block-card" if is_valid else "hacked-card"
+    status_icon = "✅ Valid" if is_valid else "❌ Broken/Hacked"
+    
+    with st.container():
+        st.markdown(f"""<div class="{card_class}">
+            <h3>Block #{block['index']} ({status_icon})</h3>
+            <p><b>Data:</b> {block['data']}</p>
+            <p style="font-size: 0.8em; color: gray;"><b>Hash:</b> {block['hash']}</p>
+            <p style="font-size: 0.8em; color: gray;"><b>Prev Hash:</b> {block['prev_hash']}</p>
+        </div>""", unsafe_allow_html=True)
+        
+        # Hack simulation button
+        if st.button(f"Edit Data of Block #{i} (Hack)", key=f"hack_{i}"):
+            st.session_state.blockchain[i]['data'] = "HACKED DATA! 😈"
+            # Re-calculate only this block's hash to show breakage
+            st.session_state.blockchain[i]['hash'] = hashlib.sha256(str(st.session_state.blockchain[i]).encode()).hexdigest()
+            st.rerun()
